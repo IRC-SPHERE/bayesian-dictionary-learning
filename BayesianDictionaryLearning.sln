@@ -1,0 +1,35 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BayesianDictionaryLearning", "BayesianDictionaryLearning.csproj", "{5CFA6A8B-FD3D-4160-95EC-53929FF7FF6A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InferHelpers", "Infer.NET-helpers\InferHelpers\InferHelpers.csproj", "{A28EC223-6D0F-4B3A-A6CB-4787A12F401F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PythonPlotter", "PythonPlotter\PythonPlotter.csproj", "{7013C931-AAB9-4B60-A7CA-F71F6F1B09C9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostProcessing", "PostProcessing\PostProcessing.csproj", "{8CECF659-B0CA-4E22-B9AC-244E2B2939D8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5CFA6A8B-FD3D-4160-95EC-53929FF7FF6A}.Debug|x86.ActiveCfg = Debug|x86
+		{5CFA6A8B-FD3D-4160-95EC-53929FF7FF6A}.Debug|x86.Build.0 = Debug|x86
+		{5CFA6A8B-FD3D-4160-95EC-53929FF7FF6A}.Release|x86.ActiveCfg = Release|x86
+		{5CFA6A8B-FD3D-4160-95EC-53929FF7FF6A}.Release|x86.Build.0 = Release|x86
+		{A28EC223-6D0F-4B3A-A6CB-4787A12F401F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A28EC223-6D0F-4B3A-A6CB-4787A12F401F}.Debug|x86.Build.0 = Debug|Any CPU
+		{A28EC223-6D0F-4B3A-A6CB-4787A12F401F}.Release|x86.ActiveCfg = Release|Any CPU
+		{A28EC223-6D0F-4B3A-A6CB-4787A12F401F}.Release|x86.Build.0 = Release|Any CPU
+		{7013C931-AAB9-4B60-A7CA-F71F6F1B09C9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7013C931-AAB9-4B60-A7CA-F71F6F1B09C9}.Debug|x86.Build.0 = Debug|Any CPU
+		{7013C931-AAB9-4B60-A7CA-F71F6F1B09C9}.Release|x86.ActiveCfg = Release|Any CPU
+		{7013C931-AAB9-4B60-A7CA-F71F6F1B09C9}.Release|x86.Build.0 = Release|Any CPU
+		{8CECF659-B0CA-4E22-B9AC-244E2B2939D8}.Debug|x86.ActiveCfg = Debug|x86
+		{8CECF659-B0CA-4E22-B9AC-244E2B2939D8}.Debug|x86.Build.0 = Debug|x86
+		{8CECF659-B0CA-4E22-B9AC-244E2B2939D8}.Release|x86.ActiveCfg = Release|x86
+		{8CECF659-B0CA-4E22-B9AC-244E2B2939D8}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+EndGlobal

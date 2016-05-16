@@ -1,0 +1,6 @@
+[submodule "PythonPlotter"]
+	path = PythonPlotter
+	url = git@github.com:IRC-SPHERE/PythonPlotter.git
+[submodule "Infer.NET-helpers"]
+	path = Infer.NET-helpers
+	url = git@github.com:IRC-SPHERE/Infer.NET-helpers.git

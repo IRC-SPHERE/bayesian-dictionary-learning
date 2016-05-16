@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--<Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />-->
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProjectGuid>{5CFA6A8B-FD3D-4160-95EC-53929FF7FF6A}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>BayesianDictionaryLearning</RootNamespace>
+    <AssemblyName>BayesianDictionaryLearning</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ExternalConsole>false</ExternalConsole>
+    <PlatformTarget>x86</PlatformTarget>
+    <ConsolePause>false</ConsolePause>
+    <Commandlineparameters>0 0 0 1</Commandlineparameters>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ExternalConsole>true</ExternalConsole>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="MathNet.Numerics, Version=3.11.1.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\MathNet.Numerics.3.11.1\lib\net40\MathNet.Numerics.dll</HintPath>
+    </Reference>
+    <Reference Include="MathNet.Numerics.Data.Matlab, Version=3.2.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\MathNet.Numerics.Data.Matlab.3.2.0\lib\net40\MathNet.Numerics.Data.Matlab.dll</HintPath>
+    </Reference>
+    <Reference Include="MathNet.Numerics.Data.Text, Version=3.2.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>packages\MathNet.Numerics.Data.Text.3.2.0\lib\net40\MathNet.Numerics.Data.Text.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed">
+      <HintPath>packages\Newtonsoft.Json.8.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed">
+      <HintPath>packages\Newtonsoft.Json.8.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="Infer.Compiler">
+      <HintPath>packages\Microsoft.Research.InferNET.2.6.41114.1\lib\net45\Infer.Compiler.dll</HintPath>
+    </Reference>
+    <Reference Include="Infer.Runtime">
+      <HintPath>packages\Microsoft.Research.InferNET.2.6.41114.1\lib\net45\Infer.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml" />
+    <Reference Include="MathNet.Numerics">
+      <HintPath>packages\MathNet.Numerics.3.11.0\lib\net40\MathNet.Numerics.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="MathNet.Numerics.Data.Matlab">
+      <HintPath>packages\MathNet.Numerics.Data.Matlab.3.2.0\lib\net40\MathNet.Numerics.Data.Matlab.dll</HintPath>
+    </Reference>
+    <Reference Include="MathNet.Numerics.Data.Text">
+      <HintPath>packages\MathNet.Numerics.Data.Text.3.2.0\lib\net40\MathNet.Numerics.Data.Text.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="CodeTimer.cs" />
+    <Compile Include="Experiment.cs" />
+    <Compile Include="GeneratedSource\BayesianDictionaryLearning_VMP.cs" />
+    <Compile Include="InferenceProgressHandlers.cs" />
+    <Compile Include="MarginalsCollection.cs" />
+    <Compile Include="ModelCollection.cs" />
+    <Compile Include="Models\BDL.cs" />
+    <Compile Include="Models\BDLParameters.cs" />
+    <Compile Include="Models\BDLSimple.cs" />
+    <Compile Include="Models\Helpers.cs" />
+    <Compile Include="ResultsCollection.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Models\IModel.cs" />
+    <Compile Include="Marginals.cs" />
+    <Compile Include="Data.cs" />
+    <Compile Include="DataSet.cs" />
+    <Compile Include="PlottingHelper.cs" />
+    <Compile Include="Models\BDLV.cs" />
+    <Compile Include="Reconstruction.cs" />
+    <Compile Include="Results.cs" />
+    <Compile Include="Precomputed.cs" />
+    <Compile Include="Runner.cs" />
+    <Compile Include="Serializable.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Infer.NET-helpers\InferHelpers\InferHelpers.csproj">
+      <Project>{A28EC223-6D0F-4B3A-A6CB-4787A12F401F}</Project>
+      <Name>InferHelpers</Name>
+    </ProjectReference>
+    <ProjectReference Include="PythonPlotter\PythonPlotter.csproj">
+      <Project>{7013C931-AAB9-4B60-A7CA-F71F6F1B09C9}</Project>
+      <Name>PythonPlotter</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="GeneratedSource" />
+    <Folder Include="Models\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+</Project>
