@@ -73,9 +73,8 @@
     <Compile Include="InferenceProgressHandlers.cs" />
     <Compile Include="MarginalsCollection.cs" />
     <Compile Include="ModelCollection.cs" />
-    <Compile Include="Models\BDL.cs" />
     <Compile Include="Models\BDLParameters.cs" />
-    <Compile Include="Models\BDLSimple.cs" />
+    <Compile Include="Models\BDL.cs" />
     <Compile Include="Models\Helpers.cs" />
     <Compile Include="ResultsCollection.cs" />
     <Compile Include="Program.cs" />
@@ -85,7 +84,6 @@
     <Compile Include="Data.cs" />
     <Compile Include="DataSet.cs" />
     <Compile Include="PlottingHelper.cs" />
-    <Compile Include="Models\BDLV.cs" />
     <Compile Include="Reconstruction.cs" />
     <Compile Include="Results.cs" />
     <Compile Include="Precomputed.cs" />
