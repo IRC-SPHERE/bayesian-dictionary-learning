@@ -27,21 +27,13 @@
 namespace BayesianDictionaryLearning
 {
     using Models;
-//    using Model = Models.BDLOnline;
-//    using Model = Models.BDL;
-//    using OnlineModel = Models.BDLOnline;
-    using Model = Models.BDLSimple;
-//    using OnlineModel = Models.BDLSimple;
-//    using Model = Models.BDLSpikeSlab;
+    using Model = Models.BDL;
 
     public class ModelCollection
     {
         public IModel Train { get; set; } //= new Model(Mode.Train, false, true, false, false, false, true);
-//        public IModel TrainOnline { get; set; } //= new OnlineModel(Mode.TrainOnline, false, true, false, false, false, true);
         public IModel TrainFixed { get; set; } //= new Model(Mode.TrainFixed, false, true, false, false, false, true);
-//        public IModel TrainFixedOnline { get; set; } //= new OnlineModel(Mode.TrainOnline, false, true, false, false, false, true);
         public IModel Reconstruct { get; set; } //= new Model(Mode.Reconstruct, false, true, false, false, false, true);
-//        public IModel ReconstructOnline { get; set; } //= new OnlineModel(Mode.Reconstruct, false, true, false, false, false, true);
 
         public static ModelCollection CreateModels(bool sparse = true, bool normConstraints = false, bool includeBias = false, bool missingData = false)
         {

@@ -78,7 +78,7 @@ namespace PostProcessing
             var models = new ModelCollection
             {
                 TrainFixed =
-                    new BDLSimple(new BDLParameters
+                    new BDL(new BDLParameters
                     {
                         Mode = Mode.TrainFixed,
                         Sparse = sparse,
@@ -88,7 +88,7 @@ namespace PostProcessing
                         Debug = true
                     }),
                 Reconstruct =
-                    new BDLSimple(new BDLParameters
+                    new BDL(new BDLParameters
                     {
                         Mode = Mode.Reconstruct,
                         Sparse = sparse,

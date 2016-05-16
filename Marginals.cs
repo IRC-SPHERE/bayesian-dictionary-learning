@@ -44,23 +44,10 @@ namespace BayesianDictionaryLearning
         /// </summary>
         public Gaussian[][] Coefficients { get; set; }
 
-        /// <summary>
-        /// Gets or sets the coefficients (vector form).
-        /// </summary>
-        /// <value>The coefficients v.</value>
-        public VectorGaussian[] CoefficientsV { get; set; }
-
-        /// <summary>
         /// Gets or sets the noise precision.
         /// </summary>
         /// <value>The noise precision.</value>
         public Gamma NoisePrecision { get; set; }
-
-        /// <summary>
-        /// Gets or sets the noise precision (Wishart form).
-        /// </summary>
-        /// <value>The noise precision.</value>
-        public Wishart NoisePrecisionW { get; set; }
 
         /// <summary>
         /// The dictionary marginals
@@ -76,17 +63,6 @@ namespace BayesianDictionaryLearning
         /// The dictionary precisions marginals
         /// </summary>
         public Gamma[][] DictionaryPrecisions { get; set; }
-
-        /// <summary>
-        /// Gets or sets the dictionary v.
-        /// </summary>
-        /// <value>The dictionary v.</value>
-        public VectorGaussian[] DictionaryV { get; set; }
-
-        /// <summary>
-        /// The spike and slab selectors
-        /// </summary>
-        public Bernoulli[][] Selectors { get; set; }
 
         /// <summary>
         /// The model evidence
@@ -127,17 +103,7 @@ namespace BayesianDictionaryLearning
             int numBases, double sigma,
             bool vectorized)
         {
-            return vectorized
-                ? new Marginals
-                {
-                    DictionaryV = dictionary == null
-                        ? DistributionHelpers.CreateVectorGaussianArray(basisWidth, numBases, 0.0, sigma*sigma)
-                        : DistributionHelpers.GetVectorGaussianArray(dictionary.ToRowArrays()),
-                    CoefficientsV = coefficients == null
-                        ? null
-                        : DistributionHelpers.GetVectorGaussianArray(coefficients.ToRowArrays())
-                }
-                : new Marginals
+            return new Marginals
                 {
                     Dictionary = dictionary == null
                         // ? DistributionHelpers.CreateGaussianArray(numBases, basisWidth, 0.0, sigma * sigma)

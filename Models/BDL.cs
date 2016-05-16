@@ -27,14 +27,15 @@
 namespace BayesianDictionaryLearning.Models
 {
     using System;
-    using System.Collections.Generic;
+    using System.Linq;
+    using MicrosoftResearch.Infer.Maths;
     using InferHelpers;
     using MicrosoftResearch.Infer;
     using MicrosoftResearch.Infer.Distributions;
     using MicrosoftResearch.Infer.Models;
 
     /// <summary>
-    /// Bayesian Dictionary Learning (Gaussian version)
+    /// Bayesian Dictionary Learning
     /// </summary>
     public class BDL : IModel
     {
@@ -44,48 +45,54 @@ namespace BayesianDictionaryLearning.Models
 
         private VariableArray2D<double> coefficients;
         private VariableArray2D<double> dictionary;
+        private Variable<double> noisePrecision;
+
+        private VariableArray<double> bias;
 
         private VariableArray2D<double> signals;
 
         private Variable<bool> evidence;
 
-//        private Variable<double> beta;
-        private Variable<double> a;
-        private Variable<double> b;
+//        private Variable<double> a;
+//        private Variable<double> b;
+//        private Variable<double> c;
+//        private Variable<double> d;
 
-        private VariableArray<VariableArray <double>, double[][]> coefficientMeans;
-        private VariableArray<VariableArray <double>, double[][]> coefficientPrecisions;
+//        private VariableArray2D<double> coefficientMeans;
+        private VariableArray2D<double> coefficientPrecisions;
+//        private VariableArray2D<double> dictionaryMeans;
+        private VariableArray<VariableArray<double>, double[][]> dictionaryMeans;
+        private VariableArray2D<double> dictionaryPrecisions;
 
-        private VariableArray<VariableArray <double>, double[][]> dictionaryMeans;
-        private VariableArray<VariableArray <double>, double[][]> dictionaryPrecisions;
+        private VariableArray2D<Gaussian> coefficientPriors;
+        private VariableArray2D<Gaussian> dictionaryPriors;
 
-        private Variable<double> noisePrecision;
         private Variable<Gamma> noisePrecisionPrior;
+
+        private VariableArray2D<bool> missing;
 
         private Range basis;
         private Range signal;
         private Range sample;
 
         private InferenceEngine engine;
+        private IGeneratedAlgorithm compiledAlgorithm;
 
         public BDLParameters Parameters { get; set; }
 
+        public bool Converged { get; set; }
+
+        public InferenceMonitor InferenceMonitor { get; set; }
+
         public BDL(BDLParameters parameters, bool autoConstruct = false)
+            // Mode mode, bool nonNegative = false, bool sparse = true, bool normConstraints = false,
+            // bool includeBias = false, bool showFactorGraph = false, bool autoConstruct = false, bool debug = true)
         {
             Parameters = parameters;
             if (autoConstruct)
             {
                 ConstructModel();
             }
-        }
-
-        /// <summary>
-        /// Add a handler for when an inference update happens.
-        /// </summary>
-        /// <param name="handler">The event handler.</param>
-        public void AddUpdateHandler(EventHandler<ProgressChangedEventArgs> handler)
-        {
-            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -105,20 +112,27 @@ namespace BayesianDictionaryLearning.Models
             sample = new Range(signalWidth).Named("sample");
 
             // Hyperparameters
-            a = Variable.New<double>().Named("a"); //.Attrib(new DoNotInfer());
-            b = Variable.New<double>().Named("b"); //.Attrib(new DoNotInfer());
+//            a = Variable.New<double>().Named("a").Attrib(new DoNotInfer());
+//            b = Variable.New<double>().Named("b").Attrib(new DoNotInfer());
+            var a = Variable.Observed(Parameters.Sparse ? 0.5 : 1.0).Named("a");
+            var b = Variable.Observed(Parameters.Sparse ? 1e-6 : 1.0).Named("b");
 
-            // beta = Variable.New<double>().Named("beta"); // .Attrib(new DoNotInfer());
-//            beta = Variable.GammaFromShapeAndRate(1, 1).Named("beta");
-
-            noisePrecisionPrior = Variable.New<Gamma>().Named("noisePrecisionPrior"); //.Attrib(new DoNotInfer());
+            noisePrecisionPrior = Variable.New<Gamma>().Named("noisePrecisionPrior").Attrib(new DoNotInfer());
             noisePrecision = Variable<double>.Random(noisePrecisionPrior).Named("noisePrecision");
 
-            coefficientMeans = Variable.Array(Variable.Array<double>(basis), signal).Named("coefficientMeans"); // .Attrib(new DoNotInfer());
-            coefficientPrecisions = Variable.Array(Variable.Array<double>(basis), signal).Named("coefficientPrecisions");
+//            coefficientMeans = Variable.Array<double>(signal, basis).Named("coefficientMeans"); // .Attrib(new DoNotInfer());
+            coefficientPrecisions = Variable.Array<double>(signal, basis).Named("coefficientPrecisions");
+//            dictionaryMeans = Variable.Array<double>(basis, sample).Named("dictionaryMeans"); // .Attrib(new DoNotInfer());
+            dictionaryMeans = Variable.Array(Variable.Array<double>(sample), basis).Named("dictionaryMeans");
+                // .Attrib(new DoNotInfer());
+            dictionaryPrecisions = Variable.Array<double>(basis, sample).Named("dictionaryPrecsions");
+                // .Attrib(new DoNotInfer());
 
-            dictionaryMeans = Variable.Array(Variable.Array<double>(sample), basis).Named("dictionaryMeans"); // .Attrib(new DoNotInfer());
-            dictionaryPrecisions = Variable.Array(Variable.Array<double>(sample), basis).Named("dictionaryPrecisions"); // .Attrib(new DoNotInfer());
+            coefficientPriors =
+                Variable.Array<Gaussian>(signal, basis).Named("coefficentPriors").Attrib(new DoNotInfer());
+            dictionaryPriors = Variable.Array<Gaussian>(basis, sample)
+                .Named("dictionaryPriors")
+                .Attrib(new DoNotInfer());
 
             // Define the arrays
             coefficients = Variable.Array<double>(signal, basis).Named("coefficients");
@@ -128,103 +142,104 @@ namespace BayesianDictionaryLearning.Models
             signal.AddAttribute(new Sequential());
 
             // Priors
-            coefficientPrecisions[signal][basis] = Variable.GammaFromShapeAndRate(a, b).ForEach(signal, basis);
 
-            using (Variable.ForEach(basis))
+            // Coefficients and dictionary
+//            coefficients[signal, basis] = Variable.GaussianFromMeanAndPrecision(coefficientMeans[signal, basis],
+//                coefficientPrecisions[signal, basis]);
+
+            switch (Parameters.Mode)
             {
-                using (Variable.ForEach(sample))
+                case Mode.Train:
+                    // dictionaryMeans[basis, sample] = Variable.GaussianFromMeanAndVariance(0, 1).ForEach(basis, sample);
+                    dictionaryMeans[basis][sample] = Variable.GaussianFromMeanAndVariance(0, 1).ForEach(basis, sample);
+                    dictionaryPrecisions[basis, sample] = Variable.GammaFromShapeAndRate(1, 1).ForEach(basis, sample);
+                    // dictionary[basis, sample] = Variable.GaussianFromMeanAndPrecision(dictionaryMeans[basis, sample], dictionaryPrecisions[basis, sample]);
+                    dictionary[basis, sample] = Variable.GaussianFromMeanAndPrecision(dictionaryMeans[basis][sample],
+                        dictionaryPrecisions[basis, sample]);
+//                    dictionary[basis, sample] = Variable.GaussianFromMeanAndPrecision(0, 1).ForEach(basis, sample);
+                    coefficientPrecisions[signal, basis] = Variable.GammaFromShapeAndRate(a, b).ForEach(signal, basis);
+                    coefficients[signal, basis] = Variable.GaussianFromMeanAndPrecision(0,
+                        coefficientPrecisions[signal, basis]);
+                    break;
+                case Mode.TrainFixed:
+                    dictionary[basis, sample] = Variable.Random<double, Gaussian>(dictionaryPriors[basis, sample]);
+                    coefficientPrecisions[signal, basis] = Variable.GammaFromShapeAndRate(a, b).ForEach(signal, basis);
+                    coefficients[signal, basis] = Variable.GaussianFromMeanAndPrecision(0,
+                        coefficientPrecisions[signal, basis]);
+                    dictionary.AddAttribute(new DoNotInfer());
+                    break;
+//                case Mode.TrainOnline:
+//                    dictionary[basis, sample] = Variable.Random<double, Gaussian>(dictionaryPriors[basis, sample]);
+//                    coefficientPrecisions[signal, basis] = Variable.GammaFromShapeAndRate(a, b).ForEach(signal, basis);
+//                    coefficients[signal, basis] = Variable.GaussianFromMeanAndPrecision(0,
+//                        coefficientPrecisions[signal, basis]);
+//                    break;
+                case Mode.Reconstruct:
+                    dictionary[basis, sample] = Variable.Random<double, Gaussian>(dictionaryPriors[basis, sample]);
+                    coefficients[signal, basis] = Variable.Random<double, Gaussian>(coefficientPriors[signal, basis]);
+                    dictionary.AddAttribute(new DoNotInfer());
+                    coefficients.AddAttribute(new DoNotInfer());
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(Mode));
+            }
+
+            // Break symmetry
+//            coefficients[signal, basis].InitialiseTo(coefficientPriors[signal, basis]);
+            dictionary[basis, sample].InitialiseTo(dictionaryPriors[basis, sample]);
+
+            // The main model
+            VariableArray2D<double> cleanSignals;
+            if (Parameters.UseMatrixMultiply)
+            {
+                if (Parameters.MissingData)
                 {
-                    dictionaryMeans[basis][sample] = Variable.GaussianFromMeanAndPrecision(0, 1);
-                    // dictionaryPrecisions[basis][sample].SetTo(beta);
-                    dictionaryPrecisions[basis][sample] = Variable.GammaFromShapeAndRate(1, 1);
+                    throw new InvalidOperationException("Cannot use MatrixMultiply factor with missing data");
+                }
+
+                cleanSignals = Variable.MatrixMultiply(coefficients, dictionary).Named("clean");
+            }
+            else
+            {
+                if (Parameters.MissingData)
+                {
+                    missing = Variable.Array<bool>(signal, sample).Named("missing").Attrib(new DoNotInfer());
+                    cleanSignals = Helpers.MatrixMultiply(coefficients, dictionary, signal, sample, basis, missing).Named("clean");
+                }
+                else
+                {
+                    cleanSignals = Helpers.MatrixMultiply(coefficients, dictionary, signal, sample, basis).Named("clean");
                 }
             }
 
-            // Coefficients and dictionary
-            coefficients[signal, basis] = Variable.GaussianFromMeanAndPrecision(coefficientMeans[signal][basis], coefficientPrecisions[signal][basis]);
-            dictionary[basis, sample] = Variable.GaussianFromMeanAndPrecision(dictionaryMeans[basis][sample], dictionaryPrecisions[basis][sample]);
-
-            // The main model
-            var cleanSignals = Variable.MatrixMultiply(coefficients, dictionary).Named("clean");
-            //var cleanSignals = MatrixMultiply(coefficients, dictionary).Named("clean");
-            signals[signal, sample] = Variable.GaussianFromMeanAndPrecision(cleanSignals[signal, sample], noisePrecision);
-
-            // Norm and Non-negativity constraints
-            ConstrainNorms();
+            if (Parameters.IncludeBias)
+            {
+                bias = Variable.Array<double>(sample).Named("bias");
+                bias[sample] = Variable.GaussianFromMeanAndPrecision(0.0, 0.01).ForEach(sample);
+                var signalPlusBias = Variable.Array<double>(signal, sample).Named("signalPlusBias");
+                signalPlusBias[signal, sample] = cleanSignals[signal, sample] + bias[sample];
+                signals[signal, sample] = Variable.GaussianFromMeanAndPrecision(signalPlusBias[signal, sample],
+                    noisePrecision);
+            }
+            else
+            {
+                signals[signal, sample] = Variable.GaussianFromMeanAndPrecision(cleanSignals[signal, sample],
+                    noisePrecision);
+            }
 
             if (Parameters.NonNegative)
             {
-                // TODO: not sure how to do this with vectors?
-                //Variable.ConstrainPositive(coefficients[signal, basis]);
-                //Variable.ConstrainPositive(coefficients[signal][basis]);
+                Variable.ConstrainPositive(coefficients[signal, basis]);
             }
 
-            if (Parameters.Mode == Mode.TrainFixed)
+            if (Parameters.Mode == Mode.Train && Parameters.NormConstraints)
             {
-                dictionary.AddAttribute(new DoNotInfer());
+                Helpers.ConstrainNorms(dictionaryMeans, basis, sample);
             }
 
             evidenceBlock.CloseBlock();
+
             InitialiseEngine();
-        }
-
-        /// <summary>
-        /// Constrains the norms.
-        /// </summary>
-        /// <returns>The norms.</returns>
-        public void ConstrainNorms()
-        {
-//            var squares = Variable.Array<double>(basis).Named("squares");
-//            var clone = sample.Clone().Named("clone");
-//
-//            using (Variable.ForEach(basis))
-//            {
-//                var v1 = Variable.Array<double>(sample).Named("v1");
-//                using (Variable.ForEach(sample))
-//                {
-//                    v1[sample] = dictionary[basis, sample];
-//                }
-//
-//                var v2 = Variable.Array<double>(clone).Named("v1");
-//                using (Variable.ForEach(clone))
-//                {
-//                    v1[clone] = Variable.Copy(dictionary[basis, clone]);
-//                }
-//
-//                squares[basis] = Variable.InnerProduct(Variable.Vector(v1), Variable.Vector(v2));
-//                Variable.ConstrainEqual(squares[basis], 1.0);
-//            }
-
-//            var clone = basis.Clone().Named("clone");
-//            var copy = Variable.Array<double>(sample, clone).Named("copy");
-//            copy[sample, basis] = Variable.Copy(dictionary[basis, sample]);
-//            var cov = Variable.MatrixMultiply(dictionary, copy).Named("cov");
-//
-//            using (Variable.ForEach(basis))
-//            {
-//                using (Variable.ForEach(clone))
-//                {
-//                    Variable.ConstrainEqual(cov[basis, clone], 1.0);
-//                }
-//            }
-
-            //using (Variable.ForEach(basis))
-            //{
-            //    using (Variable.ForEach(sample))
-            //    {
-            //        Variable.ConstrainBetween(dictionary[basis, sample], -1, 1);
-            //    }
-            //}
-
-            // TODO: Can this be done for this version?
-            //using (Variable.ForEach(sample))
-            //{
-            //    var copy = Variable.Copy(dictionary[sample]).Named("dCopy");
-            //    var normSquared = Variable.InnerProduct(dictionary[sample], copy).Named("normSquared");
-            //    //Variable.ConstrainPositive(1 - normSquared);
-            //    //Variable.ConstrainEqual(normSquared, 1.0);
-            //    Variable.ConstrainEqualRandom(normSquared, Gaussian.FromMeanAndVariance(1.0, 0.1));
-            //}
         }
 
         /// <summary>
@@ -233,37 +248,74 @@ namespace BayesianDictionaryLearning.Models
         /// <returns>The engine.</returns>
         public void InitialiseEngine()
         {
-            engine = new InferenceEngine { Algorithm = new VariationalMessagePassing() };
-            engine.Compiler.IncludeDebugInformation = true;
-            // engine.ShowFactorGraph = Mode == Mode.Train && ShowFactorGraph;
-            engine.ShowFactorGraph = Parameters.ShowFactorGraph;
-
-            engine.Algorithm.DefaultNumberOfIterations = Parameters.MaxIterations[Parameters.Mode];
+            engine = new InferenceEngine
+            {
+                Algorithm = new VariationalMessagePassing(),
+                ShowFactorGraph = Parameters.Mode == Mode.Train && Parameters.ShowFactorGraph,
+                ModelName = "BayesianDictionaryLearning"
+            };
 
             switch (Parameters.Mode)
             {
                 case Mode.Train:
-                    engine.OptimiseForVariables = new IVariable[]
-                    {
-                        dictionary, dictionaryMeans, dictionaryPrecisions,
-                        coefficients, noisePrecision, evidence
-                    };
+//                case Mode.TrainOnline:
+                    engine.OptimiseForVariables = new IVariable[] {dictionary, coefficients, noisePrecision, evidence};
                     break;
                 case Mode.TrainFixed:
-                    engine.OptimiseForVariables = new IVariable[] { coefficients, noisePrecision, evidence };
-                break;
+                    engine.OptimiseForVariables = new IVariable[] {coefficients, noisePrecision, evidence};
+                    break;
                 case Mode.Reconstruct:
-                    engine.OptimiseForVariables = new IVariable[] { signals, evidence };
-                break;
+                    engine.OptimiseForVariables = new IVariable[] {signals, evidence};
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(Mode));
             }
 
-            // Speed ups
-            engine.Compiler.ReturnCopies = false;
-            engine.Compiler.FreeMemory = false;
-            engine.Compiler.CatchExceptions = false;
-            engine.Compiler.UseParallelForLoops = true;
+            if (Parameters.Debug)
+            {
+                engine.ShowTimings = true;
+                engine.Compiler.IncludeDebugInformation = true;
+                engine.Compiler.GenerateInMemory = false;
+                engine.Compiler.GeneratedSourceFolder = "../../GeneratedSource";
+            }
+            else
+            {
+                // Speed ups
+                engine.ShowWarnings = false;
+                engine.Compiler.ReturnCopies = false;
+                engine.Compiler.FreeMemory = false;
+                engine.Compiler.CatchExceptions = false;
+                engine.Compiler.UseParallelForLoops = true;
+                engine.Compiler.WriteSourceFiles = false;
+                engine.Compiler.AddComments = false;
+            }
+
+            numberOfBases.ObservedValue = default(int);
+            numberOfSignals.ObservedValue = default(int);
+            signalWidth.ObservedValue = default(int);
+//            a.ObservedValue = default(double);
+//            b.ObservedValue = default(double);
+            noisePrecisionPrior.ObservedValue = default(Gamma);
+
+            if (Parameters.MissingData)
+            {
+                missing.ObservedValue = new bool[,] {};
+            }
+
+            if (Parameters.Mode == Mode.Train || Parameters.Mode == Mode.TrainFixed) //  || Parameters.Mode == Mode.TrainOnline)
+            {
+                signals.ObservedValue = new double[,] {};
+            }
+            else
+            {
+                coefficientPrecisions.ObservedValue = new double[,] {};
+            }
+
+            dictionaryPriors.ObservedValue = new Gaussian[,] {};
+            coefficientPriors.ObservedValue = new Gaussian[,] {};
+
+            compiledAlgorithm = engine.GetCompiledInferenceAlgorithm(engine.OptimiseForVariables.ToArray());
+            compiledAlgorithm.ProgressChanged += StandardHandler;
         }
 
         /// <summary>
@@ -289,54 +341,43 @@ namespace BayesianDictionaryLearning.Models
             }
 
             int numSignals = inputSignals.Length;
-            int numBases = priors.Dictionary?.Length ?? priors.DictionaryMeans.Length;
+            int numBases = priors.Dictionary.Length;
             int obsSignalWidth = inputSignals[0].Length;
 
             // Assume that first signal is the correct width
             SetObservedVariables(numSignals, obsSignalWidth, numBases);
 
-            noisePrecisionPrior.ObservedValue = Gamma.FromShapeAndRate(1, 1);
-            coefficientMeans.ObservedValue = ArrayHelpers.Zeros(numBases, numSignals);
+            compiledAlgorithm.SetObservedValue(noisePrecisionPrior.NameInGeneratedCode, Gamma.FromShapeAndRate(1, 1));
+            // compiledAlgorithm.SetObservedValue(coefficientMeans.NameInGeneratedCode, ArrayHelpers.Zeros(numBases, numSignals).To2D());
+            // coefficientPrecisions.InitialiseTo(ArrayHelpers.Zeros(numBases, numSignals));
+            //coefficientPrecisions.InitialiseTo(
+            //    Distribution<double>.Array(DistributionHelpers.CreateGammaArray(numBases, numSignals, 1.0, 1.0)));
 
-            signals.ObservedValue = inputSignals.To2D();
+            compiledAlgorithm.SetObservedValue(signals.NameInGeneratedCode, inputSignals.To2D());
 
-            if (Parameters.Mode == Mode.TrainFixed)
+            if (Parameters.MissingData)
             {
-                dictionaryMeans.ObservedValue = priors.Dictionary.GetMeans<Gaussian>();
-                dictionaryPrecisions.ObservedValue = priors.Dictionary.GetPrecisions();
+                compiledAlgorithm.SetObservedValue(missing.NameInGeneratedCode,
+                    inputSignals.Select(ia => ia.Select(double.IsNaN).ToArray()).ToArray().To2D());
+            }
+
+            if (Parameters.Mode == Mode.Train)
+            {
+                Rand.Restart(0);
+                compiledAlgorithm.SetObservedValue(dictionaryPriors.NameInGeneratedCode,
+                    DistributionHelpers.CreateGaussianArray(numBases, obsSignalWidth, Rand.Normal, 1.0).To2D());
             }
             else
             {
-                // Break symmetry with random initialisation of the dictionary
-                dictionary.InitialiseTo(Distribution<double>.Array(priors.Dictionary.To2D()));
+                compiledAlgorithm.SetObservedValue(dictionaryPriors.NameInGeneratedCode, priors.Dictionary.To2D());
             }
 
-            // TODO: Try spike and slab
-            // TODO: Try constraining the norm of the bases somehow
-            var posteriors = new Marginals
-            {
-                Coefficients = engine.Infer<Gaussian[,]>(coefficients).ToJagged(),
-                NoisePrecision = engine.Infer<Gamma>(noisePrecision),
-                Evidence = engine.Infer<Bernoulli>(evidence)
-            };
+//            compiledAlgorithm.SetObservedValue(coefficientPriors.NameInGeneratedCode,
+//                DistributionHelpers.CreateGaussianArray(numSignals, numBases, Rand.Normal, 1.0).To2D());
 
-            switch (Parameters.Mode)
-            {
-                case Mode.Train:
-                    posteriors.Dictionary = engine.Infer<Gaussian[,]>(dictionary).ToJagged();
-                    posteriors.DictionaryMeans = engine.Infer<Gaussian[][]>(dictionaryMeans);
-                    posteriors.DictionaryPrecisions = engine.Infer<Gamma[][]>(dictionaryPrecisions);
-                    break;
-                case Mode.TrainFixed:
-                    posteriors.Dictionary = priors.Dictionary;
-                    break;
-                case Mode.Reconstruct:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
 
-            return posteriors;
+            RunInference();
+            return GetCurrentMarginals(priors);
         }
 
         /// <summary>
@@ -350,24 +391,9 @@ namespace BayesianDictionaryLearning.Models
                 throw new ArgumentOutOfRangeException(nameof(priors));
             }
 
-            if (Parameters.Mode == Mode.Reconstruct)
+            if (priors.Dictionary == null)
             {
-                if (priors.Dictionary == null)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(priors.Dictionary));
-                }
-            }
-            else
-            {
-                if (priors.DictionaryMeans == null)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(priors.DictionaryMeans));
-                }
-
-                if (priors.DictionaryPrecisions == null)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(priors.DictionaryPrecisions));
-                }
+                throw new ArgumentOutOfRangeException(nameof(priors.Dictionary));
             }
 
             if (priors.Coefficients == null)
@@ -376,26 +402,25 @@ namespace BayesianDictionaryLearning.Models
             }
 
             int numSignals = priors.Coefficients.Length;
-            int numBases = priors.Dictionary?.Length ?? priors.DictionaryMeans.Length;
-            int obsSignalWidth = priors.Dictionary?[0].Length ?? priors.DictionaryMeans[0].Length;
+            int numBases = priors.Dictionary.Length;
+            int obsSignalWidth = priors.Dictionary[0].Length;
 
             SetObservedVariables(numSignals, obsSignalWidth, numBases);
 
-            if (Parameters.Mode == Mode.Reconstruct)
+            compiledAlgorithm.SetObservedValue(dictionaryPriors.NameInGeneratedCode, priors.Dictionary.To2D());
+//            compiledAlgorithm.SetObservedValue(coefficientMeans.NameInGeneratedCode, priors.Coefficients.GetMeans<Gaussian>().To2D());
+//            compiledAlgorithm.SetObservedValue(coefficientPrecisions.NameInGeneratedCode, priors.Coefficients.GetPrecisions().To2D());
+            compiledAlgorithm.SetObservedValue(coefficientPriors.NameInGeneratedCode, priors.Coefficients.To2D());
+            compiledAlgorithm.SetObservedValue(noisePrecisionPrior.NameInGeneratedCode, priors.NoisePrecision);
+
+            if (Parameters.MissingData)
             {
-                dictionaryMeans.ObservedValue = priors.Dictionary.GetMeans<Gaussian>();
-                dictionaryPrecisions.ObservedValue = priors.Dictionary.GetPrecisions();
+                compiledAlgorithm.SetObservedValue(missing.NameInGeneratedCode,
+                    ArrayHelpers.Uniform(numSignals, obsSignalWidth, false).To2D());
             }
 
-            coefficientMeans.ObservedValue = priors.Coefficients.GetMeans<Gaussian>();
-            coefficientPrecisions.ObservedValue = priors.Coefficients.GetPrecisions();
-
-            noisePrecisionPrior.ObservedValue = priors.NoisePrecision;
-
-            return new Marginals
-            {
-                Signals = engine.Infer<Gaussian[,]>(signals).ToJagged()
-            };
+            RunInference();
+            return GetCurrentMarginals(null);
         }
 
         /// <summary>
@@ -407,18 +432,134 @@ namespace BayesianDictionaryLearning.Models
         private void SetObservedVariables(int numSignals, int obsSignalWidth, int numBases)
         {
             // Assume that first signal is the correct width
-            numberOfSignals.ObservedValue = numSignals;
-            signalWidth.ObservedValue = obsSignalWidth;
-            numberOfBases.ObservedValue = numBases;
-
-            a.ObservedValue = 0.5;
-            b.ObservedValue = 1e-6;
-
-            // TODO: Try the two different priors for beta here
-            // beta.ObservedValue = 1;
-            //beta.ObservedValue = 1e-8;
-            //Console.WriteLine($"Using sigma={sigma:N2}, bound={bound:N2}, beta={beta.ObservedValue:N2}");
+            compiledAlgorithm.SetObservedValue(numberOfSignals.NameInGeneratedCode, numSignals);
+            compiledAlgorithm.SetObservedValue(signalWidth.NameInGeneratedCode, obsSignalWidth);
+            compiledAlgorithm.SetObservedValue(numberOfBases.NameInGeneratedCode, numBases);
+//            compiledAlgorithm.SetObservedValue(a.NameInGeneratedCode, 1.0); // 0.5);
+//            compiledAlgorithm.SetObservedValue(b.NameInGeneratedCode, 1.0); // 1e-6);
+//            if (Mode == Mode.Train)
+//            {
+//                compiledAlgorithm.SetObservedValue(c.NameInGeneratedCode, 1.0);
+//                compiledAlgorithm.SetObservedValue(d.NameInGeneratedCode, 1.0);
+//            }
         }
+
+        private void RunInference()
+        {
+            Runner.RunningExperiment.RunningModel = this;
+            Converged = false;
+            InferenceMonitor = new InferenceMonitor();
+            compiledAlgorithm.Reset();
+            for (var i = 0; i < Parameters.MaxIterations[Parameters.Mode]; i++)
+            {
+                try
+                {
+                    compiledAlgorithm.Update(1);
+                }
+                catch (NotSupportedException exception)
+                {
+                    Console.WriteLine($"Inference failed with exception: {exception.Message}");
+                    return;
+                }
+
+                if (Converged)
+                {
+                    return;
+                }
+            }
+        }
+
+        private void StandardHandler(object sender, ProgressChangedEventArgs eventArgs)
+        {
+            InferenceMonitor.PreviousEvidence = InferenceMonitor.CurrentEvidence;
+            InferenceMonitor.CurrentEvidence = compiledAlgorithm.Marginal<Bernoulli>("evidence").LogOdds;
+
+            if (eventArgs.Iteration <= 0)
+            {
+                return;
+            }
+
+            if (Parameters.ShowProgress)
+            {
+//                Console.Write(eventArgs.Iteration%10 == 0 ? $"{eventArgs.Iteration}" : ".");
+                Console.WriteLine($"{Parameters.Mode} {eventArgs.Iteration}: {InferenceMonitor.EvidenceRatio}");
+            }
+
+//            if (InferenceMonitor.MeanDifference >= Tolerance)
+            // Check for convergence
+            if (!Parameters.ConvergenceCriterion(InferenceMonitor, Parameters.Tolerance))
+            {
+                return;
+            }
+
+            if (Parameters.ShowProgress)
+            {
+                // Console.WriteLine($"\n{MarginalOfInterest} converged after {eventArgs.Iteration + 1} iterations");
+                Console.WriteLine($"{Parameters.Mode} converged after {eventArgs.Iteration + 1} iterations");
+                Console.WriteLine();
+            }
+
+            Converged = true;
+        }
+
+        /// <summary>
+        /// Add a handler for when an inference update happens.
+        /// </summary>
+        /// <param name="handler">The event handler.</param>
+        public void AddUpdateHandler(EventHandler<ProgressChangedEventArgs> handler)
+        {
+            System.Diagnostics.Debug.Assert(compiledAlgorithm != null, "compiledAlgorithm != null");
+            compiledAlgorithm.ProgressChanged += handler;
+        }
+
+        public Marginals GetCurrentMarginals(Marginals priors)
+        {
+            if (Parameters.Mode == Mode.Reconstruct)
+            {
+                return new Marginals
+                {
+                    Signals = compiledAlgorithm.Marginal<Gaussian[,]>(signals.NameInGeneratedCode).ToJagged()
+                };
+            }
+
+            var posteriors = new Marginals
+            {
+                Coefficients = compiledAlgorithm.Marginal<Gaussian[,]>(coefficients.NameInGeneratedCode).ToJagged(),
+                NoisePrecision = compiledAlgorithm.Marginal<Gamma>(noisePrecision.NameInGeneratedCode),
+                Evidence = compiledAlgorithm.Marginal<Bernoulli>(evidence.NameInGeneratedCode)
+            };
+
+            switch (Parameters.Mode)
+            {
+                case Mode.Train:
+//                case Mode.TrainOnline:
+                    posteriors.Dictionary =
+                        compiledAlgorithm.Marginal<Gaussian[,]>(dictionary.NameInGeneratedCode).ToJagged();
+                    break;
+                case Mode.TrainFixed:
+                    posteriors.Dictionary = priors.Dictionary.Copy();
+                    break;
+                case Mode.Reconstruct:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            return posteriors;
+        }
+
+        public override string ToString()
+        {
+            return $"BDL ({Parameters.Mode})";
+        }
+    }
+
+    public class InferenceMonitor
+    {
+        public double PreviousEvidence { get; set; } = double.NegativeInfinity;
+        public double CurrentEvidence { get; set; }
+
+        public double EvidenceRatio => CurrentEvidence / PreviousEvidence;
     }
 }
 

@@ -24,10 +24,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-using System;
-
 namespace BayesianDictionaryLearning
 {
+    using System;
     using System.Linq;
     using Models;
     using InferHelpers;
@@ -45,21 +44,9 @@ namespace BayesianDictionaryLearning
                 return;
             }
 
-            // var compiledAlgorithm = (IGeneratedAlgorithm) sender;
-            var model = (BDLSimple) RunningExperiment.Models.Train;
-
-            // Console.WriteLine($"Log Evidence: {model.InferenceMonitor.CurrentEvidence}");
-            // Console.WriteLine($"Evidence ratio: {model.InferenceMonitor.EvidenceRatio}");
+            var model = (BDL) RunningExperiment.Models.Train;
 
             RunningExperiment.ConvergenceResults.Evidence.Add(model.InferenceMonitor.CurrentEvidence);
-            //                RunningExperiment.Convergence.MeanDifferences.Add(model.InferenceMonitor.MeanDifference);
-            //                RunningExperiment.Convergence.StandardDeviationDifference.Add(
-            //                    model.InferenceMonitor.StandardDeviationDifference);
-
-            // model.InferenceMonitor.PrintDifferences();
-
-            // TODO: Compute reconstruction error (every 10 iterations?)
-            // if (eventArgs.Iteration%10 != 0) return;
 
             string st = $"accel convergence {RunningExperiment.ConvergenceResults.Name} {eventArgs.Iteration}";
             var trainPosteriors = model.GetCurrentMarginals(null);

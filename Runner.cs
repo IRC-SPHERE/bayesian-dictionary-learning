@@ -283,13 +283,13 @@ namespace BayesianDictionaryLearning
                                 Console.WriteLine(st);
                                 RunningExperiment.Models = ModelCollection.CreateModels(sparse, normConstraints, useBias);
                                 var handlers = new InferenceProgressHandlers {RunningExperiment = RunningExperiment};
-                                ((BDLSimple) RunningExperiment.Models.Train).Parameters.ConvergenceCriterion =
+                                ((BDL) RunningExperiment.Models.Train).Parameters.ConvergenceCriterion =
                                     (monitor, d) => false;
-                                ((BDLSimple) RunningExperiment.Models.Train).Parameters.MaxIterations[Mode.Train] = 20;
+                                ((BDL) RunningExperiment.Models.Train).Parameters.MaxIterations[Mode.Train] = 20;
 
-                                ((BDLSimple) RunningExperiment.Models.Train).Parameters.UseMatrixMultiply = useMatrixMultiply;
-                                ((BDLSimple) RunningExperiment.Models.TrainFixed).Parameters.UseMatrixMultiply = useMatrixMultiply;
-                                ((BDLSimple) RunningExperiment.Models.Reconstruct).Parameters.UseMatrixMultiply = useMatrixMultiply;
+                                ((BDL) RunningExperiment.Models.Train).Parameters.UseMatrixMultiply = useMatrixMultiply;
+                                ((BDL) RunningExperiment.Models.TrainFixed).Parameters.UseMatrixMultiply = useMatrixMultiply;
+                                ((BDL) RunningExperiment.Models.Reconstruct).Parameters.UseMatrixMultiply = useMatrixMultiply;
 
                                 RunningExperiment.Models.Train.AddUpdateHandler(handlers.CustomHandler);
                                 RunningExperiment.ConvergenceResults = new Results {Name = st};
