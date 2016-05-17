@@ -47,6 +47,7 @@ namespace BayesianDictionaryLearning
             const double noise = 0.1;
             var toy = Data.GetToyData(128, n, 0.1);
             var bases = new[] {32, 64, 128, 256, 512, 1024, 2048};
+            // var bases = new[] {128};
             var resultsToy = new ResultsCollection
             {
                 Name = toy.Name,
@@ -520,7 +521,7 @@ namespace BayesianDictionaryLearning
             DataSet data,
             Func<int, Precomputed> precomputedFunction,
             ModelCollection models,
-            IEnumerable<int> bases,
+            IList<int> bases,
             string subTitle,
             bool normalise = true,
             bool isImage = false,
@@ -528,7 +529,7 @@ namespace BayesianDictionaryLearning
             bool plotCoefficients = false,
             bool plotReconstructions = false)
         {
-            var results = new Results {Name = subTitle, Normalised = normalise};
+            var results = new Results {Name = subTitle, Normalised = normalise, BasisCounts = bases};
 
             foreach (int numBases in bases)
             {
